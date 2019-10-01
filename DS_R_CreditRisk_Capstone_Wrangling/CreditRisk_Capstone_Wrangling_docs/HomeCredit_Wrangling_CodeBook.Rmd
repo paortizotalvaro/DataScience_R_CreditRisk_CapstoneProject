@@ -1,0 +1,674 @@
+---
+title: "Step by step description of homecredit_wrangling.R"
+author: "P. A. Ortiz Otalvaro"
+date: "3 September 2019"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+<!---
+ describes the variables, the data, and any transformations or work that you performed to clean up the data
+ creation date: 21 August 2019
+ -->
+
+_“Data Wrangling is the process of converting and mapping data from its raw form to another format with the purpose of making it more valuable and appropriate for advanced tasks such as Data Analytics and Machine Learning.”_
+
+# 1. Load packages
+``` {r message=FALSE, warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+# 2. Read data
+During the reading process, all blank and empty observations were replaced with NA.
+
+```{r, chunk_read_csv, echo=FALSE, eval=FALSE}
+
+# *********** Load data (convert any blank or empty entries into NA)*****************
+# homecredit_train <- read.csv("../LoanData_HomeCredit/application_train.csv", sep=",",
+#                                 stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# homecredit_test <- read.csv("../LoanData_HomeCredit/application_test.csv", sep=",",
+#                                stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# 
+# bureau <- read.csv("../LoanData_HomeCredit/bureau.csv", sep=",", 
+#                    stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# 
+# bureaubalance <- read.csv("../LoanData_HomeCredit/bureau_balance.csv", sep=",", 
+#                    stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# 
+# previousapp <- read.csv("../LoanData_HomeCredit/previous_application.csv", sep=",", 
+#                    stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# 
+# poscashbalance <- read.csv("../LoanData_HomeCredit/POS_CASH_balance.csv", sep=",", 
+#                    stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# 
+# installments <- read.csv("../LoanData_HomeCredit/installments_payments.csv", sep=",", 
+#                    stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+# 
+# creditcard <- read.csv("../LoanData_HomeCredit/credit_card_balance.csv", sep=",", 
+#                    stringsAsFactors = FALSE, na.strings = c(""," ",NA))
+
+
+# saveRDS(homecredit_train_df, "../LoanData_HomeCredit/application_train.RDS" )
+# saveRDS(homecredit_test_df, "../LoanData_HomeCredit/application_test.RDS" )
+# saveRDS(installments, "../LoanData_HomeCredit/installments_payments.RDS")
+# saveRDS(bureau, "../LoanData_HomeCredit/bureau.RDS")
+# saveRDS(bureau_balance, "../LoanData_HomeCredit/bureau_balance.RDS")
+# saveRDS(previousapp, "../LoanData_HomeCredit/previous_application.RDS")
+# saveRDS(poscashbalance, "../LoanData_HomeCredit/POS_CASH_balance.RDS")
+# saveRDS(creditcard, "../LoanData_HomeCredit/credit_card_balance.RDS")
+
+```
+
+
+```{r, chunk_read_rds}
+
+homecredit_train <- readRDS("../LoanData_HomeCredit/application_train.RDS")
+homecredit_test <- readRDS("../LoanData_HomeCredit/application_test.RDS")
+bureau <- readRDS("../LoanData_HomeCredit/bureau.RDS")
+bureaubalance <- readRDS("../LoanData_HomeCredit/bureau_balance.RDS")
+previousapp <- readRDS("../LoanData_HomeCredit/previous_application.RDS")
+poscashbalance <- readRDS("../LoanData_HomeCredit/POS_CASH_balance.RDS")
+installments <- readRDS("../LoanData_HomeCredit/installments_payments.RDS")
+creditcard <- readRDS("../LoanData_HomeCredit/credit_card_balance.RDS")
+
+
+```
+
+
+### Clean up column names 
+In my opinion the columnn names do not need to be modified. They are already simple, short and descriptive.
+
+
+
+
+
+# 3. Initial exploration of data sets
+
+General description of data files. There are 7 csv files with information related to Home Credit customer's past financial data. All files are related directly or indirectly to application_{train|test}.csv. The relation between them (and the corresponding keys) are shown in Figure 1. 
+
+1. *application_{train|test}.csv* 
+* This is the main table, broken into two files for Train (with TARGET) and Test (without TARGET).
+* One row represents one loan in the data sample.
+* For each loan there are 121 features describing the customer as well as the loan. Variables are in the categories: personal information, work status, family details, housing, properties and some information on customer's social circle related to Home Credit. Loan documentation and previous credit history according to Credit Bureau.
+
+
+2. *bureau.csv* 
+* All client's previous credits provided by other financial institutions that were reported to Credit Bureau (for clients who have a loan in our sample).
+* For every loan in our sample, there are as many rows as number of credits the client had in Credit Bureau before the application date.
+
+3. *bureau_balance.csv*
+* Monthly balances of previous credits in Credit Bureau.
+* This table has one row for each month of history of every previous credit reported to Credit Bureau – i.e the table has (#loans in sample * # of relative previous credits * # of months where we have some history observable for the previous credits) rows.
+
+4. *POS_CASH_balance.csv*
+* Monthly balance snapshots of previous POS (point of sales) and cash loans that the applicant had with Home Credit.
+* This table has one row for each month of history of every previous credit in Home Credit (consumer credit and cash loans) related to loans in our sample – i.e. the table has (#loans in sample * # of relative previous credits * # of months in which we have some history observable for the previous credits) rows.
+
+5. *credit_card_balance.csv*
+* Monthly balance snapshots of previous credit cards that the applicant has with Home Credit.
+* This table has one row for each month of history of every previous credit in Home Credit (consumer credit and cash loans) related to loans in our sample – i.e. the table has (#loans in sample * # of relative previous credit cards * # of months where we have some history observable for the previous credit card) rows.
+
+6. *previous_application.csv*
+* All previous applications for Home Credit loans of clients who have loans in our sample.
+* There is one row for each previous application related to loans in our data sample.
+
+7. *installments_payments.csv*
+* Repayment history for the previously disbursed credits in Home Credit related to the loans in our sample.
+* There is 
+    a) one row for every payment that was made plus 
+    b) one row each for missed payment.
+* One row is equivalent to one payment of one installment OR one installment corresponding to one payment of one previous Home Credit credit related to loans in our sample.
+
+8. *HomeCredit_columns_description.csv*
+* This file contains descriptions for the columns in the various data files.
+
+<br>
+
+
+Source: <https://www.kaggle.com/c/home-credit-default-risk/data>
+
+![Figure 1: Connections between all data sets](C:\Users\potalvar\Google Drive\Learning\Springboard_Intro2DS\Springboard_Intro2DS_Capstone\Intro2DS_Capstone_Report\Figures4Report\home_credit.png)
+
+
+
+
+
+```{r, chunk_initialeda, echo=FALSE, eval=T}
+
+# ****** get total columns of each data type ******
+#train
+charcolumns_train <- homecredit_train[ , sapply(homecredit_train , class) == 'character' ]
+factorcolumns_train <- homecredit_train[ , sapply(homecredit_train, class) == 'factor' ]
+numericolumns_train <- homecredit_train[ , sapply(homecredit_train, class) %in% c('numeric','integer') ]
+# test
+charcolumns_test <- homecredit_test[ , sapply(homecredit_test , class) == 'character' ]
+factorcolumns_test <- homecredit_test[ , sapply(homecredit_test, class) == 'factor' ]
+numericolumns_test <- homecredit_test[ , sapply(homecredit_test, class) %in% c('numeric','integer') ]
+#bureau
+charcolumns_bureau <- bureau[ , sapply(bureau , class) == 'character' ]
+factorcolumns_bureau <- bureau[ , sapply(bureau, class) == 'factor' ]
+numericolumns_bureau <- bureau[ , sapply(bureau, class) %in% c('numeric','integer') ]
+#bureau_balance
+charcolumns_bureaubalance <- as.data.frame(bureaubalance[ , sapply(bureaubalance , class) == 'character' ])
+factorcolumns_bureaubalance <- bureaubalance[ , sapply(bureaubalance, class) == 'factor' ]
+numericolumns_bureaubalance <- bureaubalance[ , sapply(bureaubalance, class) %in% c('numeric','integer') ]
+#previousapp
+charcolumns_previousapp <- previousapp[ , sapply(previousapp , class) == 'character' ]
+factorcolumns_previousapp <- previousapp[ , sapply(previousapp, class) == 'factor' ]
+numericolumns_previousapp <- previousapp[ , sapply(previousapp, class) %in% c('numeric','integer') ]
+#poscashbalance
+charcolumns_poscashbalance <- as.data.frame(poscashbalance[ , sapply(poscashbalance , class) == 'character' ])
+factorcolumns_poscashbalance <- poscashbalance[ , sapply(poscashbalance, class) == 'factor' ]
+numericolumns_poscashbalance <- poscashbalance[ , sapply(poscashbalance, class) %in% c('numeric','integer') ]
+#installments
+charcolumns_installments <- installments[ , sapply(installments , class) == 'character' ]
+factorcolumns_installments <- installments[ , sapply(installments, class) == 'factor' ]
+numericolumns_installments <- installments[ , sapply(installments, class) %in% c('numeric','integer') ]
+#creditcard
+charcolumns_creditcard <- as.data.frame(creditcard[ , sapply(creditcard , class) == 'character' ])
+factorcolumns_creditcard <- creditcard[ , sapply(creditcard, class) == 'factor' ]
+numericolumns_creditcard <- creditcard[ , sapply(creditcard, class) %in% c('numeric','integer') ]
+
+
+# ****** get general features of all data sets together (format to present table in pdf) ******
+totalrows <- data.frame( (c(nrow(homecredit_train),
+                            nrow(homecredit_test),
+                            nrow(bureau),
+                            nrow(bureaubalance),
+                            nrow(previousapp),
+                            nrow(poscashbalance),
+                            nrow(installments),
+                            nrow(creditcard) )) ) %>%
+               `colnames<-` ("Observations") %>%
+               `rownames<-` (c("Train","Test","Bureau","Bureau balance", "Previous Applications", "POS cash balance", "Installment Payments", "Credit card"))
+
+#,
+                        #col.names = "Number of observations")
+
+totalcols <- data.frame( (c(ncol(homecredit_train),
+                            ncol(homecredit_test),
+                            ncol(bureau),
+                            ncol(bureaubalance),
+                            ncol(previousapp),
+                            ncol(poscashbalance),
+                            ncol(installments),
+                            ncol(creditcard) )) )  %>%  `colnames<-`("Features")
+
+# repeatedrows <- data.frame(t(c(sum(duplicated(homecredit_train)) , 
+#                                sum(duplicated(homecredit_test))  , 
+#                                sum(duplicated(bureau)),
+#                                sum(duplicated(bureaubalance)),
+#                                sum(duplicated(previousapp)),
+#                                sum(duplicated(poscashbalance)),
+#                                sum(duplicated(installments)),
+#                                sum(duplicated(creditcard)) )) , 
+#                            row.names = "Number of duplicated observations")
+# 
+missingvalues <- data.frame( (c( sum(is.na(homecredit_train)) ,
+                                  sum(is.na(homecredit_test))  ,
+                                  sum(is.na(bureau)),
+                                  sum(is.na(bureaubalance)),
+                                  sum(is.na(previousapp)),
+                                  sum(is.na(poscashbalance)),
+                                  sum(is.na(installments)),
+                                  sum(is.na(creditcard)) )) ) %>% `colnames<-`("NAs" )
+
+nullentries<- data.frame( (c( sum(is.null(homecredit_train)) ,
+                               sum(is.null(homecredit_test))  ,
+                               sum(is.null(bureau)),
+                               sum(is.null(bureaubalance)),
+                               sum(is.null(previousapp)),
+                               sum(is.null(poscashbalance)),
+                               sum(is.null(installments)),
+                               sum(is.null(creditcard)) )) ) %>%  `colnames<-`("Null" )
+
+char_total <- data.frame( (c( ncol(charcolumns_train),
+                              ncol(charcolumns_test),
+                              ncol(charcolumns_bureau),
+                              ncol(charcolumns_bureaubalance),
+                              ncol(charcolumns_previousapp),
+                              ncol(charcolumns_poscashbalance),
+                              ncol(charcolumns_installments),
+                              ncol(charcolumns_creditcard) )) ) %>% `colnames<-`("Character" )
+
+factor_total <- data.frame( (c( length(factorcolumns_train),
+                                length(factorcolumns_test),
+                                 length(factorcolumns_bureau),
+                                 length(factorcolumns_bureaubalance),
+                                 length(factorcolumns_previousapp),
+                                 length(factorcolumns_poscashbalance),
+                                 length(factorcolumns_installments),
+                                 length(factorcolumns_creditcard) )) ) %>% `colnames<-`("Factor" )
+
+numeric_total <- data.frame( (c( length(numericolumns_train),
+                                 length(numericolumns_test),
+                                 length(numericolumns_bureau),
+                                 length(numericolumns_bureaubalance),
+                                 length(numericolumns_previousapp),
+                                 length(numericolumns_poscashbalance),
+                                 length(numericolumns_installments),
+                                 length(numericolumns_creditcard) )) ) %>% `colnames<-`("Numeric" )
+
+# ****** all in one data frame ******
+general_info_df <- cbind(totalrows, totalcols, char_total, factor_total, numeric_total, missingvalues) #%>%
+                   #`colnames<-` (c('Train', 'Test', 'Bureau', 'Bureau balance', 'Previous applicaitons', 'POS cash balance', 'Installments', 'Credit card' ))
+
+# ****** show it as a table ******
+knitr::kable(general_info_df,)
+
+```
+
+
+# 4. Data types
+
+## Discrete and continuous
+Separating the features into character and numeric does not totally give useful insights. For example: TARGET has only numeric values (1 and 0), however getting its mean or standard deviation does not make any sense and it would be more meaningful to analyze it as a factor and determine the number of appearances of each unique value. Therefore, the following step is to divide the variable set into categorical and non-categorical.
+
+All following tables show the first 5 categorical and first 5 non-categorical columns of each data set. See appendix 1 for the complete tables.
+
+```{r, echo=FALSE, eval=T}
+# function to structure info of categorical columns in useful form to export in knitr::kable
+
+get_table_categorical <- function(df, categorical_indices){
+  
+  cbind( as.data.frame(categorical_indices),
+         as.data.frame(sapply(X=df[ , categorical_indices], FUN=function(x){length(unique(x))} )),
+         as.data.frame(sapply(X=df[ , categorical_indices], FUN=function(x){paste(unique(x), collapse=", ")}) )
+  )
+  
+}
+
+```
+
+
+```{r, echo=FALSE, eval=T}
+# function to structure info of categorical columns in useful form to export in knitr::kable
+
+get_table_statistic <- function(df, cont_indices){
+  
+totalvalues <- as.data.frame(sapply(X = df[ ,cont_indices] , 
+                                      FUN = function(x){sum(!is.na(x))}) ) %>% `colnames<-` ("Count")
+
+minvalue <- as.data.frame(sapply(X = df[ ,cont_indices], 
+                                   FUN = function(x){round(min(x, na.rm = TRUE),digits = 2)} )) %>% `colnames<-` ("Min")
+
+maxvalue <- as.data.frame(sapply(X = df[ ,cont_indices], 
+                                 FUN = function(x){round(max(x, na.rm = TRUE),digits = 2)} )) %>% `colnames<-` ("Max")
+
+std <- as.data.frame(sapply(X = df[ ,cont_indices], 
+                            FUN = function(x){round(sd(x, na.rm = TRUE),digits = 2)}) ) %>% `colnames<-` ('St Dev')
+
+ave <- as.data.frame(sapply(X = df[ ,cont_indices], 
+                            FUN = function(x){round(mean(x, na.rm = TRUE),digits = 2)}) ) %>% `colnames<-` ('Mean')
+
+mod <- as.data.frame(sapply(X = df[ ,cont_indices], 
+                            FUN = function(x){names(sort(-table(x)))[1]}) ) %>% `colnames<-` ('Mode')
+
+statistics_df <- cbind(totalvalues, minvalue, maxvalue, std, ave, mod)
+
+}
+
+```
+
+
+#### train
+```{r, chunk_train_datatypes1, echo=FALSE, eval=T}
+
+# ***************** train *********************
+# define which columns are categorical and non categorical
+id_index_curr <- 1
+train_buildinginfo_indexes <- c(45:86, 89) # continuous
+train_paperwork_indexes <- c(97:116) # categorical
+train_creditbureau_indexes <- c(117:122) # categorical
+train_categorical_indexes <- c(2:7, 12:16, 23:40, 41, 87, 88, 90:95, train_paperwork_indexes, train_creditbureau_indexes)
+train_continuous_indexes <- c(8:11, 17:22, 42, 43, 44, train_buildinginfo_indexes, 96)
+```
+
+Categorical columns:
+```{r,chunk_train_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+traincategorical_df <- get_table_categorical(homecredit_train, train_categorical_indexes)
+
+# print as tables in the pdf file
+knitr::kable(head(traincategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+General statistics of non-categorical features:
+```{r, chunk_train_datatypes3, echo=FALSE, eval=T}
+
+statistics_train_df <- get_table_statistic(homecredit_train, train_continuous_indexes)
+
+knitr::kable(statistics_train_df[1:5 , ])
+
+```
+
+
+#### bureau
+```{r, chunk_bureau_datatypes1, echo=FALSE, eval=T}
+
+# ***************** bureau *********************
+# define which columns are categorical and non categorical
+bureau_id_index <- 1
+bureau_categorical_indexes <- c(3, 4, 15 )
+bureau_continuous_indexes <- c(2, 5:9, 10:14, 16, 17 )
+```
+
+Categorical columns:
+```{r,chunk_bureau_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+bureaucategorical_df <- get_table_categorical(bureau, bureau_categorical_indexes )
+
+# print as tables in the pdf file
+knitr::kable(head(bureaucategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+General statistics of non-categorical features:
+```{r, chunk_bureau_datatypes3, echo=FALSE, eval=T}
+
+statistics_bureau_df <- get_table_statistic(bureau, bureau_continuous_indexes )
+
+knitr::kable(statistics_bureau_df[1:5 , ])
+
+```
+
+#### bureau_balance
+In _bureau_balance.csv_ all columns are categorical except for the first one that contains the id of the applicants.
+```{r, chunk_bureaubalance_datatypes1, echo=FALSE, eval=T}
+
+# ***************** bureau balance *********************
+# bureau_balance: all categorical, except the first columns with the IDs
+
+# define which columns are categorical and non categorical
+bureaubalance_id_index <- 1
+bureaubalance_categorical_indexes <- c(2, 3)
+```
+
+Categorical columns:
+```{r,chunk_bureaubalance_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+bureaubalancecategorical_df <- get_table_categorical(bureaubalance, bureaubalance_categorical_indexes )
+
+# print as tables in the pdf file
+knitr::kable(head(bureaubalancecategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+#### previous applications
+```{r, chunk_previousapp_datatypes1, echo=FALSE, eval=T}
+# ***************** Previous Applications *********************
+
+# define which columns are categorical and non categorical
+previousapp_id_index_prev <- 1
+previousapp_id_index_curr <- 2
+previousapp_categorical_indexes <- c(3, 9:12, 16, 17, 19:26, 28:31, 37)
+previousapp_continuous_indexes <- c(4:8, 13, 14, 15, 18, 27, 32:36)  
+
+```
+
+Categorical columns: 
+```{r, chunk_previousapp_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+prevappcategorical_df <- get_table_categorical(previousapp, previousapp_categorical_indexes )
+
+# print as tables in the pdf file
+knitr::kable(head(prevappcategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+General statistics of non-categorical features:
+```{r, chunk_previousapp_datatypes3, echo=FALSE, eval=T}
+
+statistics_prevapp_df <- get_table_statistic(previousapp, previousapp_continuous_indexes )
+
+knitr::kable(statistics_prevapp_df[1:5 , ])
+
+```
+
+
+#### pos cash balance
+```{r, chunk_poscash_dataypes1, echo=FALSE, eval=T}
+# ***************** Pos cash balance *********************
+
+# define which columns are categorical and non categorical
+poscash_id_index_prev <- 1
+poscash_id_index_curr <- 2
+poscash_categorical_indexes <- c(3, 4, 5, 6)
+poscash_continuous_indexes <- c(7, 8)
+
+```
+
+Categorical columns: 
+```{r, chunk_poscas_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+poscashcategorical_df <- get_table_categorical(poscashbalance, poscash_categorical_indexes )
+
+# print as tables in the pdf file
+knitr::kable(head(poscashcategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+General statistics of non-categorical features:
+```{r, chunk_poscash_datatypes3, echo=FALSE, eval=T}
+
+statistics_poscash_df <- get_table_statistic(poscashbalance, poscash_continuous_indexes )
+
+knitr::kable(statistics_poscash_df[1:5 , ])
+
+```
+
+#### Installment payments
+```{r, echo=FALSE, eval=T}
+# ***************** Installments *********************
+
+# define which columns are categorical and non categorical
+
+installments_id_index_prev <- 1
+installments_id_index_curr <- 2
+installments_categorical_indexes <- c(3, 4)
+installments_continuous_indexes <- c(5:8)
+
+```
+
+Categorical columns: 
+```{r, chunk_installments_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+installmentscategorical_df <- get_table_categorical(installments, installments_categorical_indexes )
+
+# print as tables in the pdf file
+knitr::kable(head(installmentscategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+General statistics of non-categorical features:
+```{r, chunk_installments_datatypes3, echo=FALSE, eval=T}
+
+statistics_installments_df <- get_table_statistic(installments, installments_continuous_indexes )
+
+knitr::kable(statistics_installments_df[1:5 , ])
+
+```
+
+
+
+#### Credit card balance
+
+```{r, echo=FALSE, eval=T}
+# ***************** Credit card balance *********************
+
+# define which columns are categorical and non categorical
+
+creditcard_id_index_prev <- 1
+creditcard_id_index_curr <- 2
+creditcard_categorical_indexes <- c(3, 16:21)
+creditcard_continuous_indexes <- c(4:15, 22, 23)
+```
+
+
+Categorical columns: 
+```{r, chunk_creditcard_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+creditcardcategorical_df <- get_table_categorical(creditcard, creditcard_categorical_indexes )
+
+# print as tables in the pdf file
+knitr::kable(head(creditcardcategorical_df), col.names = c("Col index","Unique total", "Unique values"))
+```
+
+General statistics of non-categorical features:
+```{r, chunk_creditcard_datatypes3, echo=FALSE, eval=T}
+
+statistics_creditcard_df <- get_table_statistic(creditcard, creditcard_continuous_indexes )
+
+knitr::kable(statistics_creditcard_df[1:5 , ])
+
+```
+
+### Subsetting features according to theme
+
+#### train
+
+```{r, echo=FALSE, eval=FALSE}
+train_loaninfo_indexes <- c(3, 9, 10, 11, 33, 34 )
+train_personalinfo_indexes <- c(4, 14, 18, 21)
+train_properties_indexes <- c(5, 6, 22 )
+train_family_indexes <- c(7, 15, 30 )
+train_work_indexes <- c(8, 13, 19, 29, 41  )
+train_housing_indexes <- c(16, 17, 31, 32, 35:40, train_buildinginfo_indexes )
+train_contactinfo_indexes <- c(23:28, 96 )
+train_socialcircle_indexes <- c(92:95)
+
+# and defined already:
+#train_paperwork_indexes <- c(97:116) # categorical
+#train_creditbureau_indexes <- c(117:122) # categorical
+
+# I don't understand what they are 
+train_NOIDEAWHERE_indexes <- c(12, 20, 42, 43, 44 )
+
+```
+
+
+
+# 5. NAs
+
+The following tables give an idea of the missing values per column. Here only the top 5 columns with missing values are shown. Appendix 1 presents the complete list.
+
+**Missing values per column**
+```{r, echo=FALSE, eval=FALSE}
+get_missingvalues <- function(df){
+    ######
+    # This function gives a dataframe with 
+    #####
+    # get the number of missing values in each column
+    missing_percol <- sapply(X = df, FUN = function(x){sum(is.na(x))})
+    
+    # extract columns with more than 1 missing value and get percentage of missing values
+                          # extract columns with more than 1 missing value
+    missingvalues_info <- as.data.frame( missing_percol[missing_percol != 0] ) %>% 
+      
+                          # set column name
+                          `colnames<-` ("MissingValues") %>%
+                          
+                          # make sure the row names are preserved
+                          tibble::rownames_to_column('feature') %>%
+      
+                          # calculate percentaje of missing values (out of the column)
+                          mutate(percentage = round(100*MissingValues/ nrow(homecredit_train ), digits = 2) ) %>%
+                          arrange(desc(percentage)) %>%
+       
+                          tibble::column_to_rownames('feature')
+    return(missingvalues_info)
+}
+
+train_missingvalues <- get_missingvalues(homecredit_train)
+test_missingvalues <- get_missingvalues(homecredit_test)
+
+```
+
+```{r, table_natrain, echo=FALSE, eval=FALSE}
+knitr::kable(head(train_missingvalues), caption = "Top 5 columns with missing values in Train data set ")
+```
+
+```{r, table_natest, echo=FALSE, eval=FALSE}
+knitr::kable(head(test_missingvalues), caption = "Top 5 columns with missing values in Test data set ")
+```
+
+
+
+*IMPORTANT:*
+
+This section will be updated later on when I have decided how to replace these missing values in each column or if to remove the observations of with missing values. I need better understanding of the models to make this decision.
+
+                              
+
+# 6. Anomalies in data set
+This is the part of the data wrangling process to search for values in the columns that do not make sense as well as outliers or extreme measurements
+
+# **COLUMNA 18 EN TRAIN, 17 EN TEST, DAYS_BIRTH: CAMBIARLA A UN TIEMPO M'AS DECENTE**
+
+#### change DAYS_BIRTH to postive value in years
+
+```{r}
+homecredit_train <- homecredit_train %>% mutate(DAYS_BIRTH/-365)
+```
+HACER GRAFICA DE VALORES EN TARGET, USAR EJEMPLO DE DATACAMP
+https://campus.datacamp.com/courses/data-visualization-with-ggplot2-1/chapter-3-aesthetics?ex=10
+
+
+<!--
+*IMPORTANT*
+I need to decide: **WHAT DO I DO WITH THE OUTLIERS?**
+-->
+
+\pagebreak
+
+# Appendix 1: summary of categorical columns
+
+## Train
+```{r, echo=FALSE, eval=T}
+knitr::kable(traincategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+
+knitr::kable(statistics_train_df[ , ])
+```
+
+## bureau
+```{r, echo=FALSE, eval=T}
+knitr::kable(bureaucategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+
+knitr::kable(statistics_bureau_df[ , ])
+```
+
+
+## Bureau balance
+```{r, echo=FALSE, eval=T}
+knitr::kable(bureaubalancecategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+```
+
+## Previous applications
+```{r, echo=FALSE, eval=T}
+knitr::kable(prevappcategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+
+knitr::kable(statistics_prevapp_df[ , ])
+```
+
+## POS cash balance
+```{r, echo=FALSE, eval=T}
+knitr::kable(poscashcategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+
+knitr::kable(statistics_poscash_df[ , ])
+```
+
+## Installment payments
+```{r, echo=FALSE, eval=T}
+knitr::kable(installmentscategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+
+knitr::kable(statistics_installments_df[ , ])
+```
+
+
+## Credit card balance
+```{r, echo=FALSE, eval=T}
+knitr::kable(creditcardcategorical_df, col.names = c("Col index","Unique total", "Unique values"))
+
+knitr::kable(statistics_creditcard_df[ , ])
+```
+
+

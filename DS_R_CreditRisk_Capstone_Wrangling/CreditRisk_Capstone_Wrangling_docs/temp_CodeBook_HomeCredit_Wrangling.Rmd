@@ -1,0 +1,91 @@
+---
+title: "Step by step description of homecredit_wrangling.R"
+author: "P. A. Ortiz Otalvaro"
+date: "3 September 2019"
+output: pdf_document
+---
+
+<!---
+ describes the variables, the data, and any transformations or work that you performed to clean up the data
+ creation date: 21 August 2019
+ -->
+
+
+
+# 1. Load packages
+``` {r results='hide'}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+# 2. Read data
+For now I am working with the two main files *application_train.csv* and *application_test.csv* in order to define a starting point to improve upon later on.
+Data frames `homecredit_train_df` and `homecredit_test_df` contain the data from these two files respectively.
+
+During the reading process, all blank and empty observations are replaced with NA.
+
+```{r}
+
+# *********** Load data (convert any blank or empty entries into NA)*****************
+homecredit_train <- readRDS("../LoanData_HomeCredit/application_train.RDS")
+homecredit_test <- readRDS("../LoanData_HomeCredit/application_test.RDS")
+bureau <- readRDS("../LoanData_HomeCredit/bureau.RDS")
+bureaubalance <- readRDS("../LoanData_HomeCredit/bureau_balance.RDS")
+previousapp <- readRDS("../LoanData_HomeCredit/previous_application.RDS")
+poscashbalance <- readRDS("../LoanData_HomeCredit/POS_CASH_balance.RDS")
+installments <- readRDS("../LoanData_HomeCredit/installments_payments.RDS")
+creditcard <- readRDS("../LoanData_HomeCredit/credit_card_balance.RDS")
+
+```
+
+<!-----
+```{r}
+# ******** Add column identifying source (train or test) REMOVE THIS IF I DON'T MERGE THE TWO ########################################################################################################################################################################################################################################################### ********
+homecredit_train_df  <- dplyr::mutate(homecredit_train_df , subset = "train")
+homecredit_test_df  <- dplyr::mutate(homecredit_test_df , subset = "test")
+```
+------>
+
+
+
+```{r, echo=FALSE}
+
+# ****** get total columns of each data type ******
+#train
+charcolumns_train <- homecredit_train_df[ , sapply(homecredit_train_df , class) == 'character' ]
+factorcolumns_train <- homecredit_train_df[ , sapply(homecredit_train_df, class) == 'factor' ]
+numericolumns_train <- homecredit_train_df[ , sapply(homecredit_train_df, class) %in% c('numeric','integer') ]
+# test
+charcolumns_test <- homecredit_test_df[ , sapply(homecredit_test_df , class) == 'character' ]
+factorcolumns_test <- homecredit_test_df[ , sapply(homecredit_test_df, class) == 'factor' ]
+numericolumns_test <- homecredit_test_df[ , sapply(homecredit_test_df, class) %in% c('numeric','integer') ]
+
+
+# ****** get general features of the data set ******
+totalrows <- data.frame(t(c(nrow(homecredit_train_df), nrow(homecredit_test_df)) ) , 
+                        row.names = "Number of observations")
+totalcols <- data.frame(t(c(ncol(homecredit_train_df), ncol(homecredit_test_df)) ) , 
+                        row.names = "Number of features")
+repeatedrows <- data.frame(t(c(sum(duplicated(homecredit_train_df)) , sum(duplicated(homecredit_test_df)) ) ) , 
+                           row.names = "Number of duplicated observations")
+missingvalues <- data.frame( t(c( sum(is.na(homecredit_train_df)) , sum(is.na(homecredit_test_df)) )) , 
+                             row.names = "Number of missing values" )
+nullentries<- data.frame( t(c( sum(is.null(homecredit_train_df)) , sum(is.null(homecredit_test_df)) )) , 
+                          row.names = "Number of null entries" )
+char_total <- data.frame(t(c( length(charcolumns_train), length(charcolumns_test) ) ) , 
+                         row.names = "Total features of char type" )
+factor_total <- data.frame(t(c( length(factorcolumns_train), length(factorcolumns_test) ) ), 
+                           row.names = "Total features of factor type" )
+numeric_total <- data.frame(t(c( length(numericolumns_train), length(numericolumns_test) ) ), 
+                            row.names = "Total features of numeric type" )
+
+# ****** all in one data frame ******
+general_info_df <- rbind(totalrows, totalcols, repeatedrows, missingvalues, char_total, factor_total, numeric_total)%>%
+                   `colnames<-` (c('Train', 'Test'))
+
+# ****** show it as a table ******
+knitr::kable(general_info_df)
+
+```

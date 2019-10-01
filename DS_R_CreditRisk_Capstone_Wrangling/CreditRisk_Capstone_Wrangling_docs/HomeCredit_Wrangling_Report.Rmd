@@ -1,0 +1,645 @@
+---
+title: "Wrangling Home Credit data set  \n Discussion"
+author: "P. A. Ortiz Otalvaro"
+date: "26 September 2019"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+<!---
+ describes the variables, the data, and any transformations or work that you performed to clean up the data
+ creation date: 21 August 2019
+ -->
+
+``` {r message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+# ******************************** SET WORKING DIR TO FILE'S PATH *********************************
+#this.dir <- dirname(parent.frame(2)$ofile)
+#setwd(this.dir)
+
+# ****************************************** LOAD PACKAGES  ***************************************
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(pander)
+library(RColorBrewer)
+
+# ********************************* LOAD MY OWN SCRIPTS (FUNCTIONS) *******************************
+lapply(list.files(path = "../../DS_R_CreditRisk_Capstone_Rfunctions/", pattern = "[.]R$", recursive = TRUE, 
+                  full.names = TRUE), source)
+#source("../../Intro2DS_Capstone_Rfunctions/usefulfor_knitr_rmarkdownreport.R")
+                  
+# ************************************ READ raw data: ALL .RDS files ******************************
+filespath =  "../../../LoanData_HomeCredit/"
+filenames_homecredit_raw <- c("application_train", "application_test", "bureau", "bureau_balance",
+                           "previous_application", "POS_CASH_balance", "installments_payments",
+                           "credit_card_balance")
+homecredit_listofdfs <- lapply(paste0(filespath, filenames_homecredit_raw,".RDS"), readRDS)
+names(homecredit_listofdfs) <- c( "train", "test", "bureau", "bureaubalance", "previousapp", "poscash",
+                        "installments", "creditcard")
+                  
+
+```
+
+
+_“Data Wrangling is the process of converting and mapping data from its raw form to another format with the purpose of making it more valuable and appropriate for advanced tasks such as Data Analytics and Machine Learning.”_
+
+
+# 1. Initial exploration of data sets
+
+**Goals of the initial exploration:**
+
+* Get a good idea of what the data is all about
+* Define the criteria to delimite in the following steps in the data wrangling process.
+
+## 1.1. General description of data files 
+
+There are 7 csv files with information related to Home Credit customer's past financial data. All files are related directly or indirectly to application_{train|test}.csv. The relation between them (and the corresponding keys) are shown in Figure 1. 
+
+1. *application_{train|test}.csv* 
+* This is the main table, broken into two files for Train (with TARGET) and Test (without TARGET).
+* One row represents one loan in the data sample.
+* For each loan there are 121 features describing the customer as well as the loan.
+
+2. *bureau.csv* 
+* All client's previous credits provided by other financial institutions that were reported to Credit Bureau (for clients who have a loan in our sample).
+* For every loan in our sample, there are as many rows as number of credits the client had in Credit Bureau before the application date.
+
+3. *bureau_balance.csv*
+* Monthly balances of previous credits in Credit Bureau.
+* This table has one row for each month of history of every previous credit reported to Credit Bureau – i.e the table has (#loans in sample * # of relative previous credits * # of months where we have some history observable for the previous credits) rows.
+
+4. *POS_CASH_balance.csv*
+* Monthly balance snapshots of previous POS (point of sales) and cash loans that the applicant had with Home Credit.
+* This table has one row for each month of history of every previous credit in Home Credit (consumer credit and cash loans) related to loans in our sample – i.e. the table has (#loans in sample * # of relative previous credits * # of months in which we have some history observable for the previous credits) rows.
+
+5. *credit_card_balance.csv*
+* Monthly balance snapshots of previous credit cards that the applicant has with Home Credit.
+* This table has one row for each month of history of every previous credit in Home Credit (consumer credit and cash loans) related to loans in our sample – i.e. the table has (#loans in sample * # of relative previous credit cards * # of months where we have some history observable for the previous credit card) rows.
+
+6. *previous_application.csv*
+* All previous applications for Home Credit loans of clients who have loans in our sample.
+* There is one row for each previous application related to loans in our data sample.
+
+7. *installments_payments.csv*
+* Repayment history for the previously disbursed credits in Home Credit related to the loans in our sample.
+* There is 
+    a) one row for every payment that was made plus 
+    b) one row each for missed payment.
+* One row is equivalent to one payment of one installment OR one installment corresponding to one payment of one previous Home Credit credit related to loans in our sample.
+
+8. *HomeCredit_columns_description.csv*
+* This file contains descriptions for the columns in the various data files.
+
+<br>
+
+
+Source: <https://www.kaggle.com/c/home-credit-default-risk/data>
+
+
+![Connections between all data sets](C:\Users\potalvar\Google Drive\Learning\Springboard_Intro2DS\DS_R_CreditRisk_Capstone\DS_R_CreditRisk_Capstone_Report\Figures4Report\home_credit.png)
+
+
+\pagebreak
+## 1.2. Exploration of data types
+
+### Variables types: general picture
+Let's first get a general picture of all data sets by extracting: the number of variables and observations as well as the number of character, factor, and numeric variables in each file. This is all show in table 1 together with the total number of NAs in each data set.
+
+```{r, chunk_generalchacteristics_datatypes, message=FALSE, warning=FALSE, echo=FALSE, eval=T}
+
+# ****** get total columns of each data type ******
+#train
+charcolumns_train <- homecredit_listofdfs[['train']][ , sapply(homecredit_listofdfs[['train']] , class) == 'character' ]
+factorcolumns_train <- homecredit_listofdfs[['train']][ , sapply(homecredit_listofdfs[['train']], class) == 'factor' ]
+numericolumns_train <- homecredit_listofdfs[['train']][ , sapply(homecredit_listofdfs[['train']], class) %in% c('numeric','integer') ]
+# test
+charcolumns_test <- homecredit_listofdfs[['test']][ , sapply(homecredit_listofdfs[['test']] , class) == 'character' ]
+factorcolumns_test <- homecredit_listofdfs[['test']][ , sapply(homecredit_listofdfs[['test']], class) == 'factor' ]
+numericolumns_test <- homecredit_listofdfs[['test']][ , sapply(homecredit_listofdfs[['test']], class) %in% c('numeric','integer') ]
+#bureau
+charcolumns_bureau <- homecredit_listofdfs[['bureau']][ , sapply(homecredit_listofdfs[['bureau']] , class) == 'character' ]
+factorcolumns_bureau <- homecredit_listofdfs[['bureau']][ , sapply(homecredit_listofdfs[['bureau']], class) == 'factor' ]
+numericolumns_bureau <- homecredit_listofdfs[['bureau']][ , sapply(homecredit_listofdfs[['bureau']], class) %in% c('numeric','integer') ]
+#bureau_balance
+charcolumns_bureaubalance <- as.data.frame(homecredit_listofdfs[['bureaubalance']][ , sapply(homecredit_listofdfs[['bureaubalance']] , class) == 'character' ])
+factorcolumns_bureaubalance <- homecredit_listofdfs[['bureaubalance']][ , sapply(homecredit_listofdfs[['bureaubalance']], class) == 'factor' ]
+numericolumns_bureaubalance <- homecredit_listofdfs[['bureaubalance']][ , sapply(homecredit_listofdfs[['bureaubalance']], class) %in% c('numeric','integer') ]
+#previousapp
+charcolumns_previousapp <- homecredit_listofdfs[['previousapp']][ , sapply(homecredit_listofdfs[['previousapp']] , class) == 'character' ]
+factorcolumns_previousapp <- homecredit_listofdfs[['previousapp']][ , sapply(homecredit_listofdfs[['previousapp']], class) == 'factor' ]
+numericolumns_previousapp <- homecredit_listofdfs[['previousapp']][ , sapply(homecredit_listofdfs[['previousapp']], class) %in% c('numeric','integer') ]
+#poscashbalance
+charcolumns_poscashbalance <- as.data.frame(homecredit_listofdfs[['poscash']][ , sapply(homecredit_listofdfs[['poscash']] , class) == 'character' ])
+factorcolumns_poscashbalance <- homecredit_listofdfs[['poscash']][ , sapply(homecredit_listofdfs[['poscash']], class) == 'factor' ]
+numericolumns_poscashbalance <- homecredit_listofdfs[['poscash']][ , sapply(homecredit_listofdfs[['poscash']], class) %in% c('numeric','integer') ]
+#installments
+charcolumns_installments <- homecredit_listofdfs[['installments']][ , sapply(homecredit_listofdfs[['installments']] , class) == 'character' ]
+factorcolumns_installments <- homecredit_listofdfs[['installments']][ , sapply(homecredit_listofdfs[['installments']], class) == 'factor' ]
+numericolumns_installments <- homecredit_listofdfs[['installments']][ , sapply(homecredit_listofdfs[['installments']], class) %in% c('numeric','integer') ]
+#creditcard
+charcolumns_creditcard <- as.data.frame(homecredit_listofdfs[['creditcard']][ , sapply(homecredit_listofdfs[['creditcard']] , class) == 'character' ])
+factorcolumns_creditcard <- homecredit_listofdfs[['creditcard']][ , sapply(homecredit_listofdfs[['creditcard']], class) == 'factor' ]
+numericolumns_creditcard <- homecredit_listofdfs[['creditcard']][ , sapply(homecredit_listofdfs[['creditcard']], class) %in% c('numeric','integer') ]
+
+
+# ****** get general features of all data sets together (format to present table in pdf) ******
+totalrows <- data.frame( (c(nrow(homecredit_listofdfs[['train']]),
+                            nrow(homecredit_listofdfs[['test']]),
+                            nrow(homecredit_listofdfs[['bureau']]),
+                            nrow(homecredit_listofdfs[['bureaubalance']]),
+                            nrow(homecredit_listofdfs[['previousapp']]),
+                            nrow(homecredit_listofdfs[['poscash']]),
+                            nrow(homecredit_listofdfs[['installments']]),
+                            nrow(homecredit_listofdfs[['creditcard']]) )) ) %>%
+  `colnames<-` ("Observations") %>%
+  `rownames<-` (c("Train","Test","Bureau","Bureau balance", "Previous Applications", "POS cash balance", "Installment Payments", "Credit card"))
+
+#,
+#col.names = "Number of observations")
+
+totalcols <- data.frame( (c(ncol(homecredit_listofdfs[['train']]),
+                            ncol(homecredit_listofdfs[['test']]),
+                            ncol(homecredit_listofdfs[['bureau']]),
+                            ncol(homecredit_listofdfs[['bureaubalance']]),
+                            ncol(homecredit_listofdfs[['previousapp']]),
+                            ncol(homecredit_listofdfs[['poscash']]),
+                            ncol(homecredit_listofdfs[['installments']]),
+                            ncol(homecredit_listofdfs[['creditcard']]) )) )  %>%  `colnames<-`("Features")
+
+# repeatedrows <- data.frame(t(c(sum(duplicated(homecredit_listofdfs[['train']])) , 
+#                                sum(duplicated(homecredit_listofdfs[['test']]))  , 
+#                                sum(duplicated(bureau)),
+#                                sum(duplicated(homecredit_listofdfs[['bureaubalance']])),
+#                                sum(duplicated(homecredit_listofdfs[['previousapp']])),
+#                                sum(duplicated(homecredit_listofdfs[['poscash']])),
+#                                sum(duplicated(homecredit_listofdfs[['installments']])),
+#                                sum(duplicated(homecredit_listofdfs[['creditcard']])) )) , 
+#                            row.names = "Number of duplicated observations")
+# 
+missingvalues <- data.frame( (c( sum(is.na(homecredit_listofdfs[['train']])) ,
+                                 sum(is.na(homecredit_listofdfs[['test']]))  ,
+                                 sum(is.na(homecredit_listofdfs[['bureau']])),
+                                 sum(is.na(homecredit_listofdfs[['bureaubalance']])),
+                                 sum(is.na(homecredit_listofdfs[['previousapp']])),
+                                 sum(is.na(homecredit_listofdfs[['poscash']])),
+                                 sum(is.na(homecredit_listofdfs[['installments']])),
+                                 sum(is.na(homecredit_listofdfs[['creditcard']])) )) ) %>% `colnames<-`("NAs" )
+
+nullentries<- data.frame( (c( sum(is.null(homecredit_listofdfs[['train']])) ,
+                              sum(is.null(homecredit_listofdfs[['test']]))  ,
+                              sum(is.null(homecredit_listofdfs[['bureau']])),
+                              sum(is.null(homecredit_listofdfs[['bureaubalance']])),
+                              sum(is.null(homecredit_listofdfs[['previousapp']])),
+                              sum(is.null(homecredit_listofdfs[['poscash']])),
+                              sum(is.null(homecredit_listofdfs[['installments']])),
+                              sum(is.null(homecredit_listofdfs[['creditcard']])) )) ) %>%  `colnames<-`("Null" )
+
+char_total <- data.frame( (c( ncol(charcolumns_train),
+                              ncol(charcolumns_test),
+                              ncol(charcolumns_bureau),
+                              ncol(charcolumns_bureaubalance),
+                              ncol(charcolumns_previousapp),
+                              ncol(charcolumns_poscashbalance),
+                              ncol(charcolumns_installments),
+                              ncol(charcolumns_creditcard) )) ) %>% `colnames<-`("Character" )
+
+factor_total <- data.frame( (c( length(factorcolumns_train),
+                                length(factorcolumns_test),
+                                length(factorcolumns_bureau),
+                                length(factorcolumns_bureaubalance),
+                                length(factorcolumns_previousapp),
+                                length(factorcolumns_poscashbalance),
+                                length(factorcolumns_installments),
+                                length(factorcolumns_creditcard) )) ) %>% `colnames<-`("Factor" )
+
+numeric_total <- data.frame( (c( length(numericolumns_train),
+                                 length(numericolumns_test),
+                                 length(numericolumns_bureau),
+                                 length(numericolumns_bureaubalance),
+                                 length(numericolumns_previousapp),
+                                 length(numericolumns_poscashbalance),
+                                 length(numericolumns_installments),
+                                 length(numericolumns_creditcard) )) ) %>% `colnames<-`("Numeric" )
+
+# ****** all in one data frame ******
+general_info_df <- cbind(totalrows, totalcols, char_total, factor_total, numeric_total, missingvalues) #%>%
+#`colnames<-` (c('Train', 'Test', 'Bureau', 'Bureau balance', 'Previous applicaitons', 'POS cash balance', 'Installments', 'Credit card' ))
+
+# ****** show it as a table ******
+knitr::kable(general_info_df, caption = "Table 1. General characteristics of data in all data sets.")
+
+```
+
+Separating the features into character and numeric does not totally give useful insights on the values contained in each column.  Therefore, to get even a better grasp on how the data set looks like, the following step will be to divide the variables according to topics
+
+Initially I will perform this exploration on the main data set: application_train. Later on, I will explore the remaining data sets.
+
+### Variable types: Subsetting features according to topic
+
+#### Application_train set: subsetting features according to topic
+As mentioned before, each loan has 121 features describing customer and loan. Variables can be separated in the categories: 
+
+##### a) Loan data
+
+```{r loan_cols, message=FALSE, warnings=FALSE, echo=FALSE}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                               | column number 
+ Contract type                              |        3 
+ Amount of loan                             |        9 
+ Loan annuity                               |       10 
+ price of goods (loan purpose)              |       11
+ Client's companion during loan application |       12
+ Weekday of loan application                |       33 
+ Hour of loan application                   |       34    "
+df <- read.delim(textConnection(       my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1       ,])) # put headers on
+df <- df[-1,] # remove first row       
+row.names(df)<-NULL                    
+pander(df, style = 'rmarkdown')        
+```
+
+##### b) Client's personal information
+
+```{r personalinfo_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                                         | column number 
+ Gender                                               |        4       
+ Level of education                                   |       14      
+ Age                                                  |       18      
+ ID expedition time                                   |       21      
+ Did client provide mobile phone? (flag)              |       23      
+ Did client provide employer phone? (flag)            |       24      
+ Did client provide work phone? (flag)                |       25      
+ Was mobile phone reachable (flag)                    |       26      
+ Did client provide home phone? (flag)                |       27      
+ Did client provide email?                            |       28      
+ How many days befor applicaiton client changed phone |       96        "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+
+##### c) Client's work information
+```{r workinfo_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                                                  | column number 
+ Total income of client                                        |        8 
+ Clients income type (businessman, working, maternity leave,…) |       13 
+ Number of days in current employment                          |       19 
+ Client's occupation                                           |       29 
+ Type of organization where client works                       |       41    "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on                   
+df <- df[-1,] # remove first row                                        
+row.names(df)<-NULL                                                     
+pander(df, style = 'rmarkdown')                                         
+```
+
+
+##### d) Client's properties
+```{r properties_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                            | column number 
+ Does client own a car? (flag)           |        5 
+ Does client own a house or flat? (flag) |        6 
+ Age of client's car                     |       22    "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put        headers on
+df <- df[-1,] # remove first row                 
+row.names(df)<-NULL                              
+pander(df, style = 'rmarkdown')                  
+```                                              
+
+
+
+##### e) Previous Credit history from Credit Bureau
+
+```{r creditbureau_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+Feature name                                                               | column number 
+Number of enqueries about the client at different times before application |   117 : 122   "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+##### f) Client's family details
+
+```{r family_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name             | column number 
+ Number of children       |       7       
+ Family status            |       15      
+ Number of family members |       30       "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+##### g) Client's social circle
+```{r socialcircle_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                                                 | column number 
+ Observations of client's social surroundings that defaulted  |    92 : 95      "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+##### h) Housing
+```{r housing_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                                    |      column number     
+ type of housing                                 |           16           
+ population of housing region                    |           17           
+ rating of housing region                        |         31, 32         
+ Do contact, work and permanent addresses match? |         35 : 40        
+ apartment size                                  |       45, 59, 73       
+ basement area                                   |       46, 60, 74       
+ age of building                                 | 47, 48, 61, 62, 75, 76 
+ common area                                     |       49, 63, 77       
+ number of elevators                             |       50, 64, 78       
+ number of entrances                             |       51, 65, 79       
+ number of floors                                | 52, 53, 66, 67, 80, 81 
+ land area                                       |       54, 68, 82       
+ living area/aparments                           | 55, 56, 69, 70, 83, 84 
+ nonliving area/apartm                           | 57, 58, 71, 72, 85, 86 
+ Type of housing                                 |           88           
+ Total area                                      |           89           
+ Walls material                                  |           90           
+ Emergency state                                 |           91           
+ ?                                               |           87            "
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+##### i) Loan paperwork
+
+```{r paperwork_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name                   | column number 
+ Did client provide document 2  |       97      
+ Did client provide document 3  |       98      
+ Did client provide document 4  |       99      
+ Did client provide document 5  |      100      
+ Did client provide document 6  |      101      
+ Did client provide document 7  |      102      
+ Did client provide document 8  |      103      
+ Did client provide document 9  |      104      
+ Did client provide document 10 |      105      
+ Did client provide document 11 |      106      
+ Did client provide document 12 |      107      
+ Did client provide document 13 |      108      
+ Did client provide document 14 |      109      
+ Did client provide document 15 |      110      
+ Did client provide document 16 |      111      
+ Did client provide document 17 |      112      
+ Did client provide document 18 |      113      
+ Did client provide document 19 |      114      
+ Did client provide document 20 |      115               "
+f <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on                   
+df <- df[-1,] # remove first row                                        
+row.names(df)<-NULL                                                     
+pander(df, style = 'rmarkdown')                                         
+```
+
+
+
+##### j) others
+I do not know exactly what these features are about
+```{r others_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+#set.caption("My great data")
+my.data <- " 
+ Feature name      | column number | Explanation in data set                               
+ DAYS_REGISTRATION |       20      | How many days before the application did client change his registration 
+ EXT_SOURCE_1      |       42      | Normalized score from external data source,normalized      
+ EXT_SOURCE_2      |       43      | Normalized score from external data source,normalized         "
+f <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on                   
+df <- df[-1,] # remove first row                                        
+row.names(df)<-NULL                                                     
+pander(df, style = 'rmarkdown')                                         
+```
+
+
+
+
+
+
+<!--------------------------------------------------------------------------
+                              II. STRUCTURING
+---------------------------------------------------------------------------->
+\pagebreak
+
+
+\pagebreak
+# 2. Structuring
+Restructure the data in a manner that better suits the following analysis
+
+### Column names 
+In my opinion the columnn names do not need to be modified. They are already simple, short and descriptive.
+
+### Order of columns (group)
+For simplicity in future analysis the columns are reordered according to their corresponding category (topic as described earlier) as follows:
+
+1. ID of applicant
+2. Target
+3. Loan
+4. Paperwork
+5. Personal  (including contact details)
+6. Work related
+7. Properties (belongings) of client
+8. Previous credit history (from Credit Bureau)
+9. Housing
+10. Columns which meaning is not fully clear
+
+
+
+# 3. Cleaning
+
+```{r, format_days2years, echo=FALSE, message=FALSE, warning=FALSE}
+
+homecredit_listofdfs[['train']] <- homecredit_listofdfs[['train']] %>% 
+                 
+                 # DAYS_BIRTH: change from days to years (and change column name)
+                 mutate(DAYS_BIRTH = round(DAYS_BIRTH/-365, digits = 2)) %>% 
+                 rename(YEARS_BIRTH = DAYS_BIRTH) %>%
+                 # DAYS_EMPLOYED: change from days to years (and change column name) %>%
+                 mutate(DAYS_EMPLOYED = round(DAYS_EMPLOYED/-365, digits = 2)) %>% 
+                 rename(YEARS_EMPLOYED = DAYS_EMPLOYED) %>%
+                 # DAYS_REGISTRATION: change from days to years (and change column name) %>%
+                 mutate(DAYS_REGISTRATION = round(DAYS_REGISTRATION/-365, digits = 2)) %>% 
+                 rename(YEARS_REGISTRATION = DAYS_REGISTRATION) %>%
+                 # DAYS_ID_PUBLISH: change from days to years (and change column name)
+                 mutate(DAYS_ID_PUBLISH = round(DAYS_ID_PUBLISH/-365, digits = 2)) %>% 
+                 rename(YEARS_ID_PUBLISH = DAYS_ID_PUBLISH) %>%
+                 # DAYS_LAST_PHONE_CHANGE: change from days to years (and change column name)
+                 mutate(DAYS_LAST_PHONE_CHANGE = round(DAYS_LAST_PHONE_CHANGE/-365, digits = 2)) %>% 
+                 rename(YEARS_LAST_PHONE_CHANGE = DAYS_LAST_PHONE_CHANGE) %>%
+  
+                 # Change all categorical variables to factor type
+                 mutate_at(train_categorical_indices, funs(factor))
+
+```
+
+## 3.1. Subsetting features into categorical and non-categorical
+To clean the data, an even more detailed exploration is needed. This can be done by dividing the variables into categorical and non-categorical and finding their distributions and patterns.
+_"In statistics, a categorical variable is a variable that can take on one of a limited, and usually fixed number of possible values, assigning each individual or other unit of observation to a particular group or nominal category on the basis of some qualitative property."_
+
+### Application_train set: subsetting features into categorical and non-categorical
+
+#### Categorical columns:
+```{r,chunk_train_datatypes2, echo=FALSE, eval=T}
+# characteristics of categorical columns
+traincategorical_df <- get_table_categorical(homecredit_listofdfs[['train']], train_categorical_indices)
+
+# print as tables in the pdf file
+knitr::kable(traincategorical_df, col.names = c("Col","Unique", "Unique values"))
+```
+
+#### Non-categorical columns:
+General statistics of non-categorical features:
+```{r, chunk_train_datatypes3, echo=FALSE, eval=T}
+
+statistics_train_df <- get_table_statistic(homecredit_listofdfs[['train']], train_continuous_indices)
+
+knitr::kable(statistics_train_df)
+
+```
+
+After listing all the categorical variables, it is useful to plot them to see the proportions between the different categories  of each variable. These plots are shown in Appendices 1 and 2. 
+
+From these summary tables and the plots it can be concluded that:
+
+* There are far more loans that were repaid on time (TARGET=0) than loans that were not repaid (TARGET=1).
+* Some of the features have a very considerable difference in the occurrence of its two criteria: one of the two criteria being observed 0.001% or less with respect to the total of observations (FLAG_MOBIL, FLAG_CONT_MOBIL, FLAG_DOCUMENT_2, FLAG_DOCUMENT_4, FLAG_DOCUMENT_10, FLAG_DOCUMENT_12 ) 
+
+
+## 3.2. Formating
+### Columns with time
+A few of the columns are given in days and to understand better what is in them (and if there are any outliers) it is handy to change it to years and as positive values. I changed: DAYS_BIRTH, DAYS_EMPLOYED, DAYS_REGISTRATION, DAYS_ID_PUBLISH, DAYS_ID_PUBLISH, DAYS_LAST_PHONE_CHANGE. These variables in years are shown in tables of section 3.1.
+<!----------
+### Dates
+Any dates needed to change into R date objects?
+------------>
+
+### Change variable types
+I changed all categorical variables from integer or character type to factor type.
+
+
+
+## 3.3. Outliers
+**MIRAR EL KERNEL DE KAGGLE Y HACER LO QUE EL HIZO PARA DETERMINAR LOS OUTLIERS Y REMOVERLOS**
+
+
+## 3.4. NAs
+
+NOTE: During the reading process, all blank and empty observations were replaced with NA.
+
+**USAR LO QUE YA CREE PARA SABER CUALES SON LAS COLUMNSAS CON MAYOR NUMERO DE NAs**
+
+**MIRAR CUALES COLUMNAS SON INUTILES SI TIENEN MUCHOS NAs Y REMOVERLAS (ALGUNAS COLUMNAS TIENE SENTIDO QUE TENGAN MUCHOS NAs PORQUE PUEDE QUE LA PREGUNTA REALMENTE NO LES APLIQUE... Y SI NO LES APLICA ES UNA COLUMNA UTIL????)**
+
+
+
+# 4. Filter data
+Select the features that are neeeded (remove non needed)
+
+## 4.1. Unnecessary columns
+This may be required to be done after the exploration data analysis is done and after feature engeneer is done.
+
+
+## 4.2. Bad data
+So far I did not find any bad values. 
+
+
+
+\pagebreak
+
+# Appendix 1: Pie charts of categorical variables (with 2 categories)
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+
+# *********************** Pie charts for variables with only 2 categories  ************************
+# data frame with only categorical columns
+categocols_df <- homecredit_listofdfs[['train']][train_categorical_indices]
+
+# check categorical columns: find the ones with only 2 categories
+numberofcategories <- lapply(categocols_df, function(x){length(unique(x))})
+twocatego_indices <- which(numberofcategories==2)
+twocatego_df <- categocols_df[names(twocatego_indices)]
+
+#make a grid of pie charts and save it to a pdf
+plot_grid_piecharts(mydf = twocatego_df, column_names = names(twocatego_df) , 
+              pdfplot_name = "train", savepdf = "No")
+
+
+```
+
+
+\pagebreak
+# Appendix 2: Bar charts of categorical variables (with more than 2 categories)
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+# ******************* Bar charts for variables with more than 2 categories  ***********************
+# check categorical columns: find the ones with MORE THAN 2 categories
+manycatego_indices <- which(numberofcategories>2)
+manycatego_df <- categocols_df[names(manycatego_indices)]
+
+#make a grid of pie charts and save it to a pdf
+plot_grid_barcharts(mydf = manycatego_df, column_names = names(manycatego_df) , 
+                    pdfplot_name = "train", savepdf = 'No')
+
+
+```
+
+
+
+
+
+
+
+
