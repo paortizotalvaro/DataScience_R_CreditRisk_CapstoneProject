@@ -36,3 +36,30 @@ get_table_statistic <- function(df, cont_indices){
   statistics_df <- cbind(totalvalues, minvalue, maxvalue, std, ave, mod)
   
 }
+
+
+
+# function to get missing values per column in a data frame df
+get_missingvalues <- function(df){
+    ######
+    # This function gives a dataframe with the number of missing values in each column
+    missing_percol <- sapply(X = df, FUN = function(x){sum(is.na(x))})
+    
+    # extract columns with more than 1 missing value and get percentage of missing values
+                          # extract columns with more than 1 missing value
+    missingvalues_info <- as.data.frame( missing_percol[missing_percol != 0] ) %>% 
+      
+                          # set column name
+                          `colnames<-` ("MissingValues") %>%
+                          
+                          # make sure the row names are preserved
+                          tibble::rownames_to_column('feature') %>%
+      
+                          # calculate percentaje of missing values (out of the column)
+                          mutate(percentage = round(100*MissingValues/ nrow(df), 
+                                                    digits = 2) ) %>%
+                          arrange(desc(percentage)) %>%
+       
+                          tibble::column_to_rownames('feature')
+    return(missingvalues_info)
+}

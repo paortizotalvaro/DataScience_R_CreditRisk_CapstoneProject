@@ -330,7 +330,7 @@ pander(df, style = 'rmarkdown')
 
 ##### e) Previous Credit history from Credit Bureau
 
-```{r creditbureau_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+```{r creditbureau_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 require(pander)
 panderOptions('table.split.table', Inf)
 #set.caption("My great data")
@@ -346,7 +346,7 @@ pander(df, style = 'rmarkdown')
 
 ##### f) Client's family details
 
-```{r family_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+```{r family_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 require(pander)
 panderOptions('table.split.table', Inf)
 #set.caption("My great data")
@@ -363,7 +363,7 @@ pander(df, style = 'rmarkdown')
 ```
 
 ##### g) Client's social circle
-```{r socialcircle_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+```{r socialcircle_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 require(pander)
 panderOptions('table.split.table', Inf)
 #set.caption("My great data")
@@ -378,7 +378,7 @@ pander(df, style = 'rmarkdown')
 ```
 
 ##### h) Housing
-```{r housing_cols, echo=FALSE, message=FALSE, warnings=FALSE}
+```{r housing_cols, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
 require(pander)
 panderOptions('table.split.table', Inf)
 #set.caption("My great data")
@@ -437,7 +437,7 @@ my.data <- "
  Did client provide document 18 |      113      
  Did client provide document 19 |      114      
  Did client provide document 20 |      115               "
-f <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
 names(df) <- unname(as.list(df[1,])) # put headers on                   
 df <- df[-1,] # remove first row                                        
 row.names(df)<-NULL                                                     
@@ -457,7 +457,7 @@ my.data <- "
  DAYS_REGISTRATION |       20      | How many days before the application did client change his registration 
  EXT_SOURCE_1      |       42      | Normalized score from external data source,normalized      
  EXT_SOURCE_2      |       43      | Normalized score from external data source,normalized         "
-f <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+df <- read.delim(textConnection(my.data),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
 names(df) <- unname(as.list(df[1,])) # put headers on                   
 df <- df[-1,] # remove first row                                        
 row.names(df)<-NULL                                                     
@@ -475,7 +475,7 @@ pander(df, style = 'rmarkdown')
 \pagebreak
 
 
-\pagebreak
+
 # 2. Structuring
 Restructure the data in a manner that better suits the following analysis
 
@@ -498,6 +498,11 @@ For simplicity in future analysis the columns are reordered according to their c
 
 
 
+
+\pagebreak
+<!--------------------------------------------------------------------------
+                              III. CLEANING
+---------------------------------------------------------------------------->
 # 3. Cleaning
 
 ```{r, format_days2years, echo=FALSE, message=FALSE, warning=FALSE}
@@ -555,12 +560,13 @@ After listing all the categorical variables, it is useful to plot them to see th
 From these summary tables and the plots it can be concluded that:
 
 * There are far more loans that were repaid on time (TARGET=0) than loans that were not repaid (TARGET=1).
-* Some of the features have a very considerable difference in the occurrence of its two criteria: one of the two criteria being observed 0.001% or less with respect to the total of observations (FLAG_MOBIL, FLAG_CONT_MOBIL, FLAG_DOCUMENT_2, FLAG_DOCUMENT_4, FLAG_DOCUMENT_10, FLAG_DOCUMENT_12 ) 
+* Some of the features have a very considerable difference in the occurrence of its two criteria: one of the two criteria being observed 0.001% or less with respect to the total of observations (FLAG_MOBIL, FLAG_CONT_MOBIL, FLAG_DOCUMENT_2, FLAG_DOCUMENT_4, FLAG_DOCUMENT_10, FLAG_DOCUMENT_12 ).
+* YEARS_EMPLOYED has bad measurements (bad observations): the minimum amount of years emplyed is negative and -1000. Unfortunately this is also the most ocurring value in this column (mode): 55374 times out of 307511 (total observations).  This will be discussed further in section 4.1.
 
 
 ## 3.2. Formating
 ### Columns with time
-A few of the columns are given in days and to understand better what is in them (and if there are any outliers) it is handy to change it to years and as positive values. I changed: DAYS_BIRTH, DAYS_EMPLOYED, DAYS_REGISTRATION, DAYS_ID_PUBLISH, DAYS_ID_PUBLISH, DAYS_LAST_PHONE_CHANGE. These variables in years are shown in tables of section 3.1.
+A few of the columns are given in days and to understand better what is in them (and if there are any outliers) it is handy to change it to years and as positive values. I changed: DAYS_BIRTH, DAYS_EMPLOYED, DAYS_REGISTRATION, DAYS_ID_PUBLISH, and DAYS_LAST_PHONE_CHANGE. These variables in years are shown in tables of section 3.1.
 <!----------
 ### Dates
 Any dates needed to change into R date objects?
@@ -570,21 +576,42 @@ Any dates needed to change into R date objects?
 I changed all categorical variables from integer or character type to factor type.
 
 
-
+<!---------
 ## 3.3. Outliers
 **MIRAR EL KERNEL DE KAGGLE Y HACER LO QUE EL HIZO PARA DETERMINAR LOS OUTLIERS Y REMOVERLOS**
+----------->
 
-
-## 3.4. NAs
+## 3.3. NAs
 
 NOTE: During the reading process, all blank and empty observations were replaced with NA.
 
-**USAR LO QUE YA CREE PARA SABER CUALES SON LAS COLUMNSAS CON MAYOR NUMERO DE NAs**
+The following tables give an idea of the missing values per column. Here only the top 5 columns with missing values are shown. Appendix 1 presents the complete list.
 
-**MIRAR CUALES COLUMNAS SON INUTILES SI TIENEN MUCHOS NAs Y REMOVERLAS (ALGUNAS COLUMNAS TIENE SENTIDO QUE TENGAN MUCHOS NAs PORQUE PUEDE QUE LA PREGUNTA REALMENTE NO LES APLIQUE... Y SI NO LES APLICA ES UNA COLUMNA UTIL????)**
+**Missing values per column**
+```{r, echo=FALSE, eval=T}
+train_missingvalues <- get_missingvalues(homecredit_listofdfs[['train']])
+test_missingvalues <- get_missingvalues(homecredit_listofdfs[['test']])
+
+```
+
+```{r, table_natrain, echo=FALSE, eval=T}
+knitr::kable(train_missingvalues, caption = "Missing values in Train data set ")
+```
+
+```{r, table_natest, echo=FALSE, eval=T}
+knitr::kable(test_missingvalues, caption = "Missing values in Test data set ")
+```
 
 
+*IMPORTANT:*
 
+This section will be updated later on when I have decided how to replace these missing values in each column or if to remove the observations with missing values. I need a better understanding of the models to make this decision.
+
+                          
+\pagebreak
+<!--------------------------------------------------------------------------
+                              IV. FILTER DATA
+---------------------------------------------------------------------------->
 # 4. Filter data
 Select the features that are neeeded (remove non needed)
 
@@ -593,11 +620,14 @@ This may be required to be done after the exploration data analysis is done and 
 
 
 ## 4.2. Bad data
-So far I did not find any bad values. 
+As discussed earlier in section 3.1. YEARS_EMPLOYED has a value that is not a sensitive time  and so it needs to be replaced. For now I changed it into NaN.
 
 
 
 \pagebreak
+<!--------------------------------------------------------------------------
+                              APENDICES
+---------------------------------------------------------------------------->
 
 # Appendix 1: Pie charts of categorical variables (with 2 categories)
 
@@ -637,8 +667,19 @@ plot_grid_barcharts(mydf = manycatego_df, column_names = names(manycatego_df) ,
 ```
 
 
+\pagebreak
+# Appendix 3: Histograms of continuous variables 
 
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+# **************************** Histograms for continuous variables ********************************
+# data frame with only continuous columns
 
+continuouscols_df <- homecredit_listofdfs[['train']][train_continuous_indices]
+
+#make a grid of pie charts and save it to a pdf
+plot_grid_histograms(mydf = continuouscols_df, column_names = names(continuouscols_df) , 
+                     savepdf = 'No')
+```
 
 
 

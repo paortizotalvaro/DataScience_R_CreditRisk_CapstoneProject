@@ -29,6 +29,10 @@ train_creditbureau_indices <- c(117:122) # categorical
 # I don't understand what they are 
 train_NOIDEAWHERE_indices <- c( 20, 42, 43, 44 )
 
+# Same information but with column names instead of col indices
+train_loaninfo_names <- c("NAME_CONTRACT_TYPE", "AMT_CREDIT", "AMT_ANNUITY", "AMT_GOODS_PRICE", "NAME_TYPE_SUITE", "WEEKDAY_APPR_PROCESS_START", "HOUR_APPR_PROCESS_START")
+
+train_personalinfo_indices <- c("CODE_GENDER", "NAME_EDUCATION_TYPE", "DAYS_BIRTH", "DAYS_ID_PUBLISH")
 
 # *********** Separate features into data types **************
 # define which columns are categorical and non categorical
@@ -36,6 +40,23 @@ train_NOIDEAWHERE_indices <- c( 20, 42, 43, 44 )
 # train
 train_categorical_indices <- c(2:7, 12:16, 23:40, 41, 87, 88, 90:95, train_paperwork_indices, train_creditbureau_indices)
 train_continuous_indices <- c(8:11, 17:22, 42, 43, 44, 45:86, 89, 96)
+train_continuous_names <- c("AMT_INCOME_TOTAL", "AMT_CREDIT", "AMT_ANNUITY"   , "AMT_GOODS_PRICE", 
+                            "REGION_POPULATION_RELATIVE", "DAYS_BIRTH"   , "DAYS_EMPLOYED", 
+                            "DAYS_REGISTRATION", "DAYS_ID_PUBLISH", "OWN_CAR_AGE", "EXT_SOURCE_1", 
+                            "EXT_SOURCE_2", "EXT_SOURCE_3", "APARTMENTS_AVG", "BASEMENTAREA_AVG", 
+                            "YEARS_BEGINEXPLUATATION_AVG", "YEARS_BUILD_AVG", "COMMONAREA_AVG", 
+                            "ELEVATORS_AVG", "ENTRANCES_AVG", "FLOORSMAX_AVG", "FLOORSMIN_AVG", 
+                            "LANDAREA_AVG", "LIVINGAPARTMENTS_AVG", "LIVINGAREA_AVG", 
+                            "NONLIVINGAPARTMENTS_AVG", "NONLIVINGAREA_AVG", "APARTMENTS_MODE", 
+                            "BASEMENTAREA_MODE", "YEARS_BEGINEXPLUATATION_MODE", "YEARS_BUILD_MODE", 
+                            "COMMONAREA_MODE", "ELEVATORS_MODE", "ENTRANCES_MODE", "FLOORSMAX_MODE", 
+                            "FLOORSMIN_MODE", "LANDAREA_MODE", "LIVINGAPARTMENTS_MODE", 
+                            "LIVINGAREA_MODE", "NONLIVINGAPARTMENTS_MODE", "NONLIVINGAREA_MODE", 
+                            "APARTMENTS_MEDI", "BASEMENTAREA_MEDI", "YEARS_BEGINEXPLUATATION_MEDI", 
+                            "YEARS_BUILD_MEDI", "COMMONAREA_MEDI", "ELEVATORS_MEDI", "ENTRANCES_MEDI", 
+                            "FLOORSMAX_MEDI", "FLOORSMIN_MEDI", "LANDAREA_MEDI" , 
+                            "LIVINGAPARTMENTS_MEDI", "LIVINGAREA_MEDI", "NONLIVINGAPARTMENTS_MEDI", 
+                            "NONLIVINGAREA_MEDI", "TOTALAREA_MODE", "DAYS_LAST_PHONE_CHANGE")
 
 # test
 test_categorical_indices <- train_categorical_indices[-1] - 1

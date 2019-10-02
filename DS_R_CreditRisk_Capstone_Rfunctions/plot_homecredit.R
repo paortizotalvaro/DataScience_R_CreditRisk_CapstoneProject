@@ -129,10 +129,10 @@ plot_barchart <- function(datadf, column_name){
 #   plot_grid_piecharts(mydf = twocatego_df, column_names = names(twocatego_df) , 
 #                       pdfplot_name = "train")
 # -------------------------------------------------------------------------------------------------
-plot_grid_barcharts <- function(mydf, column_names, pdfplot_name, plot_rows = 2, plot_cols = 2, 
-                                savepdf='Yes'){
+plot_grid_barcharts <- function(mydf, column_names, pdfplot_name = 'plotname', plot_rows = 2, 
+                                plot_cols = 2, savepdf='Yes'){
   
-  # make pie charts for varaibles with 2 categories in the current df
+  # make bar charts for the desired columns in the data frame mydf
   list_barcharts <- lapply(X = column_names, FUN = plot_barchart, datadf = mydf )
   
   if(savepdf=='Yes'){
@@ -152,8 +152,73 @@ plot_grid_barcharts <- function(mydf, column_names, pdfplot_name, plot_rows = 2,
 
 
 
+# -------------------------------------------------------------------------------------------------
+#         HISTOGRAM OF A FEATURE IN HOME CREDIT DATA SET
+# This function plots a histogram of a variable using ggplot.
+# 
+### Arguments:
+#   datadf : data frame
+#   column_index : index of column to use for plot
+#
+### Return: 
+#   pie : ggplot object with pie chart
+# -------------------------------------------------------------------------------------------------
+
+plot_histogram <- function(datadf, column_name){
+  
+  # using tidyverse remove NAs in the data used for the plot
+  datadf <- datadf %>% filter(!is.na(datadf[[column_name]]))
+  column4plot <- datadf[[column_name]]
+  
+  wantedwidth <- as.integer( (max(column4plot, na.rm = TRUE) - min(column4plot, na.rm = TRUE))/5 )
+  
+  # bar chart
+  bar <- ggplot( datadf, aes(x = column4plot) )  + 
+    ggtitle(column_name) + 
+    geom_bar(position = 'dodge', width = wantedwidth) +
+    scale_x_discrete(names(column4plot)) +
+    scale_y_continuous("Number") 
+  
+  return(bar)
+  
+}
 
 
+# -------------------------------------------------------------------------------------------------
+#                HISTOGRAMS OF MULTIPLE FEATURES FROM HOME CREDIT DATA SET
+# This function plots histograms of variables using ggplot and save them in a pdf file
+# 
+### Arguments:
+#   mydf : data frame
+#   column_names : list with names of columns to use for plot
+#
+### Return: 
+#   (Nothing)
+#
+### Usage (example);
+#   plot_grid_piecharts(mydf = twocatego_df, column_names = names(twocatego_df) , 
+#                       pdfplot_name = "train")
+# -------------------------------------------------------------------------------------------------
+plot_grid_histograms <- function(mydf, column_names, pdfplot_name = 'plotname', plot_rows = 2, 
+                                 plot_cols = 2, savepdf='Yes'){
+  
+  # make histograms for the desired columns in the data frame mydf
+  list_histograms <- lapply(X = column_names, FUN = plot_histogram, datadf = mydf )
+  
+  if(savepdf=='Yes'){
+    #make a grid of HISTOGRAMS and save it to a pdf
+    pdf(paste0("../DS_R_CreditRisk_Capstone_Plots/DS_R_CreditRisk_Capstone_PlotsWrangling/",
+               pdfplot_name,"_histograms.pdf") )
+    print( gridExtra::marrangeGrob(list_histograms, nrow = plot_rows, ncol = plot_cols) )
+    dev.off()
+  }
+  else{
+    print( gridExtra::marrangeGrob(list_histograms, nrow = plot_rows, ncol = plot_cols) )
+  }
+  
+  gc()
+  
+}
 
 
 
